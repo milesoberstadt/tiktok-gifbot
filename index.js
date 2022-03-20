@@ -2,57 +2,88 @@ const fs = require('fs');
 const { WebcastPushConnection } = require('tiktok-livestream-chat-connector');
 
 // Username of someone who is currently live
-let tiktokUsername = "fan_ou_house";
+let tiktokUsername = "frog_smile21";
+let connected = false;
 let giftInfo = [];
-let secondsRunning = 0;
-let coinsSent = 0;
 
-// Create a new wrapper object and pass the username
-let tiktokChatConnection = new WebcastPushConnection(tiktokUsername, { 
-  enableExtendedGiftInfo: true,
-  requestPollingIntervalMs: 1000,
-});
+let controlMap = {
+  "Tennis": {
+    fn: (user) => { input(user, 'up'); },
+  },
+  "Football": {
+    fn: (user) => { input(user, 'down'); },
+  },
+  "GG": {
+    fn: (user) => { input(user, 'left'); },
+  },
+  "Mini Speaker": {
+    fn: (user) => { input(user, 'right') },
+  },
+  "Ice Cream Cone": {
+    fn: (user) => { input(user, 'a') },
+  },
+  "Weights": {
+    fn: (user) => { input(user, 'b') },
+  },
+  "Rose": {
+    fn: (user) => { input(user, 'start') },
+  },
+}
 
 fs.mkdirSync('output', { recursive: true });
 
-// Connect to the chat (await can be used as well)
-tiktokChatConnection.connect().then(state => {
-    console.info(`Connected to roomId ${state.roomId}`);
-})
-.then(() => {
-  return tiktokChatConnection.getAvailableGifts().then(gifts => {
-    // console.info(`Available gifts: ${JSON.stringify(gifts)}`);
-    fs.writeFileSync('output/gifts.json', JSON.stringify(gifts, null, 2));
-    giftInfo = gifts;
-  });
-})
-.catch(err => {
-    console.error('Failed to connect', err);
-})
 
-// Define the events that you want to handle
-// In this case we listen to chat messages (comments)
-// tiktokChatConnection.on('chat', data => {
-//     console.log(`${data.uniqueId} (userId:${data.userId}) writes: ${data.comment}`);
-// })
+const connect = async () => {
+  // Connect to the chat (await can be used as well)
+  try {
+    // Create a new wrapper object and pass the username
+    let tiktokChatConnection = new WebcastPushConnection(tiktokUsername, {
+      enableExtendedGiftInfo: true,
+      requestPollingIntervalMs: 1000,
+    });
 
-// And here we receive gifts sent to the streamer
-tiktokChatConnection.on('gift', data => {
-  const minutesRunning = Math.round(secondsRunning / 60 * 100) / 100;
-  const gift = giftInfo.find(gift => gift.id === data.giftId);
-  if (gift) {
-    coinsSent += gift.diamond_count;
-    console.log(`${data.uniqueId} (userId:${data.userId}) sends ${gift.name} for ${gift.diamond_count} coins`);
-    console.log(`Stream has been running for ${minutesRunning} minutes and has made ${coinsSent} coins`);
+    return tiktokChatConnection.connect()
+      .then(state => {
+        console.info(`Connected to roomId ${state.roomId}`);
+        connected = true;
+      })
+      .then(() => {
+        return tiktokChatConnection.getAvailableGifts().then(gifts => {
+          console.log('got gift info');
+          fs.writeFileSync('output/gifts.json', JSON.stringify(gifts, null, 2));
+          giftInfo = gifts;
+          return tiktokChatConnection;
+        });
+      })
+      .catch(err => {
+        console.error('Failed to connect: ', err.message);
+        connected = false;
+        // retry connection after 5 seconds
+        return new Promise(resolve => setTimeout(resolve, 5000)).then(connect);
+      })
   }
-  else {
-    console.log(`${data.uniqueId} (userId:${data.userId}) sends ${data.giftId}`);
+  catch (err) {
   }
-})
-
-// run a timer to follow how long we've been watching stream
-const timerLoop = () => {
-  secondsRunning++;
-  setTimeout(timerLoop, 1000);
 }
-timerLoop();
+
+const input = (user, controlInput) => {
+  console.log(`${user.uniqueId} pressed ${controlInput}`);
+};
+
+connect().then((connection) => {
+  connection.on('gift', data => {
+    const gift = giftInfo.find(gift => gift.id === data.giftId);
+    if (!gift) {
+      // TODO: do something if it's an invalid gift or gift info isn't loaded
+      console.log('Gift not in config', data.giftId);
+      return;
+    }
+    const control = controlMap[gift.name];
+    if (!control) {
+      // TODO: handle this
+      // console.log('No input associated with gift', gift.name);
+      return;
+    }
+    control.fn(data);
+  });
+});
