@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "tiktok-livestream-chat-connector": "^0.9.13"
+    "tiktok-livestream-chat-connector": "^0.9.13",
+    "ws": "^8.5.0"
   }
 }

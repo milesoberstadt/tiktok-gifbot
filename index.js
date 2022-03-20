@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { WebcastPushConnection } = require('tiktok-livestream-chat-connector');
+const WebSocketServer = require('ws');
 
 // Username of someone who is currently live
 let tiktokUsername = "frog_smile21";
@@ -66,8 +67,19 @@ const connect = async () => {
   }
 }
 
+// setup the websocket server
+const wss = new WebSocketServer.Server({ port: 8123 });
+
 const input = (user, controlInput) => {
   console.log(`${user.uniqueId} pressed ${controlInput}`);
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocketServer.OPEN) {
+      client.send(JSON.stringify({
+        user: user.uniqueId,
+        controlInput,
+      }));
+    }
+  }
 };
 
 connect().then((connection) => {
