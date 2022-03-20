@@ -38,11 +38,12 @@ tiktokChatConnection.connect().then(state => {
 
 // And here we receive gifts sent to the streamer
 tiktokChatConnection.on('gift', data => {
+  const minutesRunning = Math.round(secondsRunning / 60 * 100) / 100;
   const gift = giftInfo.find(gift => gift.id === data.giftId);
   if (gift) {
     coinsSent += gift.diamond_count;
     console.log(`${data.uniqueId} (userId:${data.userId}) sends ${gift.name} for ${gift.diamond_count} coins`);
-    console.log(`Stream has been running for ${secondsRunning / 60} minutes and has made ${coinsSent} coins`);
+    console.log(`Stream has been running for ${minutesRunning} minutes and has made ${coinsSent} coins`);
   }
   else {
     console.log(`${data.uniqueId} (userId:${data.userId}) sends ${data.giftId}`);
